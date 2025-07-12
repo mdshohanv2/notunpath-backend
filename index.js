@@ -16,7 +16,7 @@ app.post('/chat', async (req, res) => {
     const response = await axios.post(
       'https://openrouter.ai/api/v1/chat/completions',
       {
-        model: "openchat/openchat-3.5-1210",
+        model: "google/gemma-3n-e2b-it:free",
         messages: [
           { role: "system", content: "You are a helpful AI buddy for teens." },
           { role: "user", content: message }
