@@ -1,73 +1,41 @@
 const express = require('express');
 const cors = require('cors');
-
-const OpenAI = require('openai');
-require('dotenv').config({ path: 'api.env' });
+const axios = require('axios');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json());
 
-// Check if OpenAI API key is configured
-if (!process.env.OPENAI_API_KEY) {
-  console.error('ERROR: OPENAI_API_KEY is not configured in api.env');
-  process.exit(1);
-}
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'OpenAI Chat API is running!',
-    status: 'healthy',
-    endpoints: {
-      chat: 'POST /chat',
-      health: 'GET /'
-    }
-  });
-});
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 app.post('/chat', async (req, res) => {
   const { message } = req.body;
 
-  // Validate request
-  if (!message || typeof message !== 'string' || message.trim() === '') {
-    return res.status(400).json({ error: 'Message is required and must be a non-empty string' });
-  }
-
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: message.trim() }],
-      max_tokens: 1000,
-      temperature: 0.7
-    });
+    const response = await axios.post(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        model: "openrouter/mistralai/mistral-7b-instruct",
+        messages: [
+          { role: "system", content: "You are a helpful AI buddy for teens." },
+          { role: "user", content: message }
+        ]
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
-    const reply = response.choices[0].message.content;
-    res.json({ 
-      reply,
-      usage: response.usage 
-    });
-  } catch (err) {
-    console.error('OpenAI API Error:', err.message);
-    
-    if (err.status === 401) {
-      res.status(401).json({ error: 'Invalid API key' });
-    } else if (err.status === 429) {
-      res.status(429).json({ error: 'Rate limit exceeded' });
-    } else {
-      res.status(500).json({ error: 'Internal server error' });
-    }
+    const reply = response.data.choices[0].message.content;
+    res.json({ reply });
+  } catch (error) {
+    console.error('OpenRouter Error:', error.response?.data || error.message);
+    res.status(500).json({ reply: "Sorry, something went wrong." });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log('Available endpoints:');
-  console.log('- GET / (health check)');
-  console.log('- POST /chat (OpenAI chat)');
-});
+app.listen(3000, () => console.log('Server running on port 3000'));
